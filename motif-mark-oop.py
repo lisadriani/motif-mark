@@ -108,9 +108,14 @@ class Fasta:
     #     self.length = len(the_seq)
 
     def find_exon(self,fasta):
-        prior = len(fasta)
-        fasta = re.split(r"(A-Z]+", fasta)
-        after = len(fasta)
+        #prior = len(fasta)
+        #fasta = re.split(r"(A-Z]+", fasta)
+        #after = len(fasta)
+        the_uppers = []
+        for i in range(0,len(fasta)):
+            if fasta[i] is.upper():
+                the_uppers.append(i)
+
         return fasta
 
     def find_intron(self,fasta):
