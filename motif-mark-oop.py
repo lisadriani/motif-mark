@@ -1,11 +1,10 @@
 #!/usr/bin/env python
 
-import re
-import cairo
-import math
 import argparse
-from itertools import product
+import re
 from random import sample
+import cairo
+
 
 def get_args():
     parser = argparse.ArgumentParser(description="This code will take a fasta file (with exons capitalized and introns lowercase), and a file of motifs and output a figure showing the motifs on an png.")
@@ -18,8 +17,7 @@ fasta_file = args.fasta
 match = re.match(re.compile("^(.*)\..*"), args.fasta) #find the name of the file before the "."
 file_name =  match.group(1)
 motif_file = args.motifs
-
-random_numbers = [0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1]
+colors= [[0,0.9,1],[.4,.4,0],[.8,.1,1],[.8,.6,1],[1,0,.4]]
 
 
 def validate_base_seq(DNA:str, RNA_flag: bool=False):
@@ -48,19 +46,20 @@ def oneline_fasta(file):
     o.write(str(build_seq))
     return(o)
 
-def draw_figure(motif_list,fasta_list, color_dict, file_name):
+def draw_figure(motifs,fastas, file_name):
 
-    width,height =  1000, ((len(fasta_list)*50+100))
+    width,height =  1000, ((len(fastas)*50+100))
 
     surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, width,height)
     context = cairo.Context(surface)
 
     ii=40
     line_value = 50
-    for fastaseq in fasta_list:
-        #print(fasta)
-        context.set_line_width(1)
+    for fastaseq in fastas:
+
         ##create the intron line##
+        context.set_line_width(1)
+
         context.move_to(0,(line_value)) #(x,y)
         context.line_to(fastaseq.length,(line_value))
         context.set_source_rgb(0,0,0)
@@ -71,12 +70,16 @@ def draw_figure(motif_list,fasta_list, color_dict, file_name):
             context.rectangle(start,ii, (end-start), 20)    #(x0,y0,x1,y1)
             context.set_source_rgb(0,0,0)
             context.fill()
-        for motifseq in motif_list:
+
+        for motifseq in motifs:
             motif_dict = motifseq.find_motif(fastaseq.fasta)
+            #print(motif_dict)
             for motif,integers in motif_dict.items():
-                color1= color_dict[motif][0]
-                color2= color_dict[motif][1]
-                color3= color_dict[motif][2]
+                #if motif in degenerate_motif.values():
+
+                color1= motif_dict[motif][2][0]
+                color2= motif_dict[motif][2][1]
+                color3= motif_dict[motif][2][2]
                 context.rectangle(integers[1],ii, (integers[0]-integers[1]), 20)    #(x0,y0,x1,y1)
                 context.set_source_rgb(color1,color2,color3)
                 #context.rectangle()
@@ -95,7 +98,7 @@ def draw_figure(motif_list,fasta_list, color_dict, file_name):
 
 class Motif:
 
-    def __init__(self, the_seq,length):
+    def __init__(self, the_seq,length, color):
         '''This is a motif'''
 
         ##the data##
@@ -103,30 +106,30 @@ class Motif:
         self.motif = the_seq
         self.length = len(the_seq)
         self.ambiguous_motif = self.ambiguous(self)
+        self.color = color
 
 
     ## the methods ##
 
     def find_motif(self, fasta):
         regex = self.ambiguous_motif
+        color = self.color
         motif_dict = dict()
         match = str()
-        color_dict = dict()
         for match in re.finditer(rf"{regex}", str(fasta)):
-            #print(match.group())
             if match != None:
-                motif_dict[match.group()]=(match.end(),match.start())
-                #color_dict[match.group()] = sample(random_numbers, 3)
-            #if len(motif_dict)>1:
+                motif_dict[match.group()]=(match.end(),match.start(), color)
+
         return  motif_dict
 
 
     def ambiguous(self,motif):
-        ambiguous_bases = {"Y":"[CTUctu]", "y":"[ctu]", "G":"[Gg]", "T":"[Tt]","A":"[Aa]", "C":"[Cc]","U":"[Uu]", "G":"[Gg]", "T":"[TtUu]", "W":"[AaTtUu]","S":"[CcGg]", "M":"[AaCc]", "K":"[GgTtUu]", "R": "[AaGg]", "B":"[CcGgTtUu]", "D":"[AaGgTtUu]", "H":"[AaCcTtUu]", "V":"[AaCcGg]", "N":"[AaCcGgTtUu]"}
-        motif = self.motif.upper()
+        ambiguous_bases = {"Y":"[CTUctu]", "y":"[ctu]", "G":"[Gg]","A":"[Aa]", "C":"[Cc]","U":"[Uu]", "G":"[Gg]", "T":"[TtUu]", "W":"[AaTtUu]","S":"[CcGg]", "M":"[AaCc]", "K":"[GgTtUu]", "R": "[AaGg]", "B":"[CcGgTtUu]", "D":"[AaGgTtUu]", "H":"[AaCcTtUu]", "V":"[AaCcGg]", "N":"[AaCcGgTtUu]"}
+        uppercase = self.motif.upper()
         finder = str()
-        for letter in motif:
+        for letter in uppercase:
             finder+= ambiguous_bases[letter] 
+        #degenerate_dict[motif].append(finder)
         return finder
 
 class Fasta: 
@@ -140,9 +143,6 @@ class Fasta:
         self.header = header
 
     ## the methods ##
-
-    # def the_length(self, the_seq):
-    #     self.length = len(the_seq)
 
     def find_exon(self,fasta):
         the_start = []
@@ -168,9 +168,6 @@ class Fasta:
 
         return exons
 
-    def find_motif(self,fasta:list,motif:list):
-        pass
-
 def classify(fasta,motif_file):
     ''' takes fasta and motif file and puts everything into a list of classes. returns 2 lists, 1 of fastas classes and one of motif classes '''
     seqs = dict()
@@ -194,63 +191,49 @@ def classify(fasta,motif_file):
     for line in motif_file: #fill the classes
         line = line.strip()
         motif_seqs.append(line)
-
+    i = 0
     for motif in motif_seqs: # fill the list with assigning the classes
-        motifs.append(Motif(motif,len(motif)))
-    
+        motifs.append(Motif(motif,len(motif), colors[i]))
+        i +=1
     return fastas,motifs
 
 
-
-
-
 oneline = oneline_fasta(fasta_file)
-fastas,motifs = classify(oneline,args.motifs) #returns a list of classes. 
+fastas,motifs = classify(oneline,args.motifs) #returns a list of classes.
+draw_figure(motifs,fastas,file_name)
 
-for fastaseq in fastas:
-    for motifseq in motifs: 
-        ambig = motifseq.ambiguous(motifseq.motif)
-       # print(motifseq.ambiguous_motif)
 
-for fastaseq in fastas:
-    pass
-    exons = fastaseq.find_exon(fastaseq.fasta)
-    #print(exons)
+
+
+
+
+
+######### FOR CHECKING #############
+
+
+
+# for fastaseq in fastas:
+#     for motifseq in motifs: 
+#         ambig = motifseq.(motifseq.motif)
+#        # print(motifseq.ambiguous_motif)
+
+# for fastaseq in fastas:
+#     pass
+#     exons = fastaseq.find_exon(fastaseq.fasta)
+#     #print(exons)
     #print(fastaseq.length)
 
 
-color_dict=dict()
-for fastaseq in fastas:
-    for motifseq in motifs:
-        #print(motifseq.ambiguous_motif)
-        motif_dict = motifseq.find_motif(fastaseq.fasta)
 
-        #print(motif_dict)
-        #print(color_dict)
-
-        #draw_figure(motifseq,fastaseq,file_name)
+# for fastaseq in fastas:
+#     for motifseq in motifs:
+#         motif_dict = motifseq.find_motif(fastaseq.fasta)
 
 
 
-    ###if it's based off of every individual motif ###
-        for motif in motif_dict:
-
-            if motif in color_dict:
-                pass
-            if motif not in color_dict:
-                #samps = sample(random_numbers,1)
-                #print(samps)
-                color_dict[motif]= sample(random_numbers, 3)
 
 
-    #### if its based off of the motif file:  ####
-    # for motif in motif_file:
-    #     if motif in color_dict:
-    #         pass
-    #     if motif not in color_dict:
-    #         color_dict[motif] = sample(random_numbers, 3)
-
-draw_figure(motifs,fastas,color_dict,file_name)
+##############NOT USED ###############
 
 # for fastaseq in fastas:
 #     for motifseq in motifs:
@@ -258,7 +241,7 @@ draw_figure(motifs,fastas,color_dict,file_name)
 #         motif_dict = motifseq.find_motif(fastaseq.fasta)
 #         print(motif_dict)
 
-
+#color_dict = assign_colors(fastas,motifs)
 
 # for motifseq in motifs:
 #     print(motifseq.length)
@@ -286,3 +269,17 @@ draw_figure(motifs,fastas,color_dict,file_name)
         #     context.line_to(fasta.length,(line_value))
         #     context.stroke()
         #     pass
+
+
+
+# def assign_colors(fastas,motifs):
+#     for fastaseq in fastas:
+#         for motifseq in motifs:
+#             motif_dict, degenerate_motif = motifseq.find_motif(fastaseq.fasta)
+
+#             for motif in degenerate_motif:
+#                 if motif in color_dict:
+#                     pass
+#                 if motif not in color_dict:
+#                     color_dict[motif]= sample(random_numbers, 3)
+#     return color_dict
