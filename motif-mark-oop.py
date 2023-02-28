@@ -17,7 +17,7 @@ fasta_file = args.fasta
 match = re.match(re.compile("^(.*)\..*"), args.fasta) #find the name of the file before the "."
 file_name =  match.group(1)
 motif_file = args.motifs
-colors= [[0,0.9,1],[.4,.4,0],[.8,.1,1],[.8,.6,1],[1,0,.4]]
+colors= [[0,0.9,1],[1,.6,1],[1,0,.4],[.5,.5,1],[.8,.1,.5]]
 
 
 def validate_base_seq(DNA:str, RNA_flag: bool=False):
@@ -28,27 +28,30 @@ def validate_base_seq(DNA:str, RNA_flag: bool=False):
 
 def oneline_fasta(file):
     '''Takes a fasta file that has the sequence on multiple lines and rewrites the file with no new lines'''
-    o = open("oneline", "r+")
+   # o = open("oneline", "r+")
     f = open(file, "r")
     build_seq = ""
     i = 0
-    for line in f:
-        if line.startswith(">") == True:
-            header = line
-            if i > 0:
-                o.write(str(build_seq) + "\n")
-            o.write(str(header))
-            build_seq = ""
-        if line.startswith(">") == False:
-            line = line.strip('\n') 
-            build_seq += line
-            i += 1
-    o.write(str(build_seq))
+    with open("oneline", "w+") as o:
+        for line in f:
+            if line.startswith(">") == True:
+                header = line
+                if i > 0:
+                    o.write(str(build_seq) + "\n")
+                o.write(str(header))
+                build_seq = ""
+            if line.startswith(">") == False:
+                line = line.strip('\n') 
+                build_seq += line
+                i += 1
+        o.write(str(build_seq))
     return(o)
 
 def draw_figure(motifs,fastas, file_name):
 
-    width,height =  1000, ((len(fastas)*50+100))
+
+    height = (len(fastas)*75+75)
+    width,height =  1000, height
 
     surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, width,height)
     context = cairo.Context(surface)
@@ -67,30 +70,74 @@ def draw_figure(motifs,fastas, file_name):
 
         exons = fastaseq.find_exon(fastaseq.fasta)
         for start,end in exons.items():
-            context.rectangle(start,ii, (end-start), 20)    #(x0,y0,x1,y1)
+            #print(start)
+            #print(end)
+            context.set_line_width(20)
+            context.move_to(start,(line_value))
+            context.line_to(end,line_value)
+            context.stroke()
+
             context.set_source_rgb(0,0,0)
-            context.fill()
+            context.move_to(10,line_value-20)
+            context.show_text(fastaseq.header)
+            context.stroke()
+            #context.rectangle(start,ii, (end-start), 20)    #(x0,y0,x1,y1)
+            #context.set_source_rgb(0,0,0)
+            #context.fill()
 
         for motifseq in motifs:
             motif_dict = motifseq.find_motif(fastaseq.fasta)
             #print(motif_dict)
             for motif,integers in motif_dict.items():
-                #if motif in degenerate_motif.values():
-
                 color1= motif_dict[motif][2][0]
                 color2= motif_dict[motif][2][1]
                 color3= motif_dict[motif][2][2]
                 context.rectangle(integers[1],ii, (integers[0]-integers[1]), 20)    #(x0,y0,x1,y1)
                 context.set_source_rgb(color1,color2,color3)
-                #context.rectangle()
                 context.fill()
-        ii+= 50
-        line_value += 50
+        ii+= 75
+        line_value += 75
 
-        ##make a legend
-    # context.rectangle(20,ii, 960, 50)    #(x0,y0,x1,y1)
-    # context.set_source_rgb(0,0,0)
-    # context.fill()
+        ##### make a legend #####
+        # write text
+
+        context.set_source_rgb(0,0,0)
+        context.move_to(35,height-25)
+        context.show_text("Legend:")
+        context.stroke()
+        ## write in the colors and labels
+        position = 100
+        for motifseq in motifs: 
+            context.rectangle(position,height-33.5, 10, 10)    #(x0,y0,x1,y1)
+            context.set_source_rgb(motifseq.color[0],motifseq.color[1],motifseq.color[2])
+            context.fill()
+            context.set_source_rgb(0,0,0)
+            context.move_to(position + 15, height - 25)
+            context.show_text(motifseq.motif)
+            lengmo = len(motifseq.motif) + 75
+            position += lengmo
+        ####make the box around it, line 1
+        position = position + 20
+        context.set_line_width(1)
+        context.move_to(20, height-50)
+        context.line_to(20, height-10)
+        context.stroke()
+        # line 2
+        context.set_line_width(1)
+        context.move_to(position, height-50 )
+        context.line_to(position, height-10)
+        context.stroke()
+        # line 3
+        context.set_line_width(1)
+        context.move_to(20,height-50 )
+        context.line_to(position, height-50)
+        context.stroke()
+        # line 4
+        context.set_line_width(1)
+        context.move_to(20,height-10 )
+        context.line_to(position, height-10)
+        context.stroke()
+
 
 
     surface.write_to_png(file_name+".png")
@@ -124,12 +171,11 @@ class Motif:
 
 
     def ambiguous(self,motif):
-        ambiguous_bases = {"Y":"[CTUctu]", "y":"[ctu]", "G":"[Gg]","A":"[Aa]", "C":"[Cc]","U":"[Uu]", "G":"[Gg]", "T":"[TtUu]", "W":"[AaTtUu]","S":"[CcGg]", "M":"[AaCc]", "K":"[GgTtUu]", "R": "[AaGg]", "B":"[CcGgTtUu]", "D":"[AaGgTtUu]", "H":"[AaCcTtUu]", "V":"[AaCcGg]", "N":"[AaCcGgTtUu]"}
+        ambiguous_bases = {"Y":"[CTUctu]", "y":"[CTUctu]", "G":"[Gg]","A":"[Aa]", "C":"[Cc]","U":"[UuTt]", "T":"[TtUu]", "W":"[AaTtUu]","S":"[CcGg]", "M":"[AaCc]", "K":"[GgTtUu]", "R": "[AaGg]", "B":"[CcGgTtUu]", "D":"[AaGgTtUu]", "H":"[AaCcTtUu]", "V":"[AaCcGg]", "N":"[AaCcGgTtUu]"}
         uppercase = self.motif.upper()
         finder = str()
         for letter in uppercase:
             finder+= ambiguous_bases[letter] 
-        #degenerate_dict[motif].append(finder)
         return finder
 
 class Fasta: 
@@ -162,10 +208,8 @@ class Fasta:
                         the_end.append(i)
                         ii = 0
                     iii +=1
-        for end in the_end:
-            for start in the_start:
-                exons[start] = end
-
+        for index, start in enumerate(the_start):
+            exons[start] = the_end[index]
         return exons
 
 def classify(fasta,motif_file):
@@ -201,9 +245,6 @@ def classify(fasta,motif_file):
 oneline = oneline_fasta(fasta_file)
 fastas,motifs = classify(oneline,args.motifs) #returns a list of classes.
 draw_figure(motifs,fastas,file_name)
-
-
-
 
 
 
