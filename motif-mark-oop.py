@@ -2,7 +2,6 @@
 
 import argparse
 import re
-from random import sample
 import cairo
 
 
@@ -20,45 +19,40 @@ motif_file = args.motifs
 colors= [[0,0.9,1],[1,.6,1],[1,0,.4],[.5,.5,1],[.8,.1,.5]]
 
 
-def validate_base_seq(DNA:str, RNA_flag: bool=False):
-    '''This will validate if a string that is given is a base sequence, returning True or False'''
-    DNA = DNA.upper()
-    thelength= len(DNA)
-    return thelength == DNA.count("A") + DNA.count("G") + DNA.count("C") + DNA.count("U") + DNA.count("T")
-
-def oneline_fasta(file):
+def oneline_fasta(file, file_name):
     '''Takes a fasta file that has the sequence on multiple lines and rewrites the file with no new lines'''
-   # o = open("oneline", "r+")
-    f = open(file, "r")
+    f = open(file, "r") #open the file given
     build_seq = ""
     i = 0
-    with open("oneline", "w+") as o:
+    with open(file_name+"_oneline.fasta", "w+") as o: #open a new file to write the fasta file as oneline
         for line in f:
-            if line.startswith(">") == True:
+            if line.startswith(">") == True: 
                 header = line
-                if i > 0:
-                    o.write(str(build_seq) + "\n")
-                o.write(str(header))
-                build_seq = ""
-            if line.startswith(">") == False:
-                line = line.strip('\n') 
-                build_seq += line
+                if i > 0: #as long as it's not the first line of the file
+                    o.write(str(build_seq) + "\n") #write out the sequence you've built
+                o.write(str(header)) #write out the header line
+                build_seq = "" #reset the sequence
+            if line.startswith(">") == False: #when its not a header line
+                line = line.strip('\n')  #strip the new line
+                build_seq += line #add it to the sequence
                 i += 1
-        o.write(str(build_seq))
+        o.write(str(build_seq)) #write out the sequence at the end of the loop
+    mylength = len(file_name) + len("_oneline.fasta")
+    o = str(o)
+    o = o[25:(25+mylength)]
     return(o)
 
 def draw_figure(motifs,fastas, file_name):
 
-
-    height = (len(fastas)*75+75)
+    height = (len(fastas)*75+75) #make the height relative to the amount of fasta files
     width,height =  1000, height
 
     surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, width,height)
     context = cairo.Context(surface)
 
-    ii=40
-    line_value = 50
-    for fastaseq in fastas:
+    ii=40 #position of the motif boxes
+    line_value = 50 #position of the intron/exon lines
+    for fastaseq in fastas: #loop through the sequence objects
 
         ##create the intron line##
         context.set_line_width(1)
@@ -68,26 +62,23 @@ def draw_figure(motifs,fastas, file_name):
         context.set_source_rgb(0,0,0)
         context.stroke()
 
-        exons = fastaseq.find_exon(fastaseq.fasta)
+
+        # get the start and end positions of the exons, to create the larger portions of exon
+        exons = fastaseq.find_exon(fastaseq.fasta) 
         for start,end in exons.items():
-            #print(start)
-            #print(end)
             context.set_line_width(20)
             context.move_to(start,(line_value))
             context.line_to(end,line_value)
             context.stroke()
-
-            context.set_source_rgb(0,0,0)
+            ## write the header line as a title above the intron/exon line
             context.move_to(10,line_value-20)
             context.show_text(fastaseq.header)
             context.stroke()
-            #context.rectangle(start,ii, (end-start), 20)    #(x0,y0,x1,y1)
-            #context.set_source_rgb(0,0,0)
-            #context.fill()
+        ## get the motif positions and colors. 
 
-        for motifseq in motifs:
+        for motifseq in motifs: ## loop through the motifs from the text file
+            ##motif_dict[seq]:(start,end,color)
             motif_dict = motifseq.find_motif(fastaseq.fasta)
-            #print(motif_dict)
             for motif,integers in motif_dict.items():
                 color1= motif_dict[motif][2][0]
                 color2= motif_dict[motif][2][1]
@@ -106,7 +97,7 @@ def draw_figure(motifs,fastas, file_name):
         context.show_text("Legend:")
         context.stroke()
         ## write in the colors and labels
-        position = 100
+        position = 100 
         for motifseq in motifs: 
             context.rectangle(position,height-33.5, 10, 10)    #(x0,y0,x1,y1)
             context.set_source_rgb(motifseq.color[0],motifseq.color[1],motifseq.color[2])
@@ -115,7 +106,7 @@ def draw_figure(motifs,fastas, file_name):
             context.move_to(position + 15, height - 25)
             context.show_text(motifseq.motif)
             lengmo = len(motifseq.motif) + 75
-            position += lengmo
+            position += lengmo   ## increment by the length of the motif for pretty spacing
         ####make the box around it, line 1
         position = position + 20
         context.set_line_width(1)
@@ -137,9 +128,6 @@ def draw_figure(motifs,fastas, file_name):
         context.move_to(20,height-10 )
         context.line_to(position, height-10)
         context.stroke()
-
-
-
     surface.write_to_png(file_name+".png")
     return 
 
@@ -158,19 +146,21 @@ class Motif:
 
     ## the methods ##
 
-    def find_motif(self, fasta):
-        regex = self.ambiguous_motif
-        color = self.color
+    def find_motif(self, fasta): 
+        '''fasta is the gene sequence, returns dictionary of the regex used: end, start, color'''
+        regex = self.ambiguous_motif #get the regex to look for all the options in case of degenerate bases
+        color = self.color #get the color since they're shared across the degenerate options
         motif_dict = dict()
         match = str()
-        for match in re.finditer(rf"{regex}", str(fasta)):
+        for match in re.finditer(rf"{regex}", str(fasta)): 
             if match != None:
                 motif_dict[match.group()]=(match.end(),match.start(), color)
 
         return  motif_dict
 
 
-    def ambiguous(self,motif):
+    def ambiguous(self,motif):  
+        '''this will give you a regex expression that can search for degenerate options '''
         ambiguous_bases = {"Y":"[CTUctu]", "y":"[CTUctu]", "G":"[Gg]","A":"[Aa]", "C":"[Cc]","U":"[UuTt]", "T":"[TtUu]", "W":"[AaTtUu]","S":"[CcGg]", "M":"[AaCc]", "K":"[GgTtUu]", "R": "[AaGg]", "B":"[CcGgTtUu]", "D":"[AaGgTtUu]", "H":"[AaCcTtUu]", "V":"[AaCcGg]", "N":"[AaCcGgTtUu]"}
         uppercase = self.motif.upper()
         finder = str()
@@ -212,7 +202,7 @@ class Fasta:
             exons[start] = the_end[index]
         return exons
 
-def classify(fasta,motif_file):
+def classify(oneline,motif_file):
     ''' takes fasta and motif file and puts everything into a list of classes. returns 2 lists, 1 of fastas classes and one of motif classes '''
     seqs = dict()
     fastas = []
@@ -220,7 +210,7 @@ def classify(fasta,motif_file):
     motif_seqs = []
 
     motif_file = open(motif_file, "r")
-    oneline = open("oneline", "r+")
+    oneline = open(oneline, "r+")
 
     for line in oneline: #fill the classes
         line=line.strip()
@@ -242,9 +232,18 @@ def classify(fasta,motif_file):
     return fastas,motifs
 
 
-oneline = oneline_fasta(fasta_file)
+oneline = oneline_fasta(fasta_file, file_name) #makes the oneline file
 fastas,motifs = classify(oneline,args.motifs) #returns a list of classes.
-draw_figure(motifs,fastas,file_name)
+draw_figure(motifs,fastas,file_name) # draws the figure
+
+
+
+
+
+
+
+
+
 
 
 
