@@ -67,8 +67,8 @@ def draw_figure(motifs,fastas, file_name):
         exons = fastaseq.find_exon(fastaseq.fasta) 
         for start,end in exons.items():
             context.set_line_width(20)
-            context.move_to(start,(line_value))
-            context.line_to(end,line_value)
+            context.move_to(start+1,(line_value))
+            context.line_to(end+1,line_value)
             context.stroke()
             ## write the header line as a title above the intron/exon line
             context.move_to(10,line_value-20)
@@ -83,7 +83,7 @@ def draw_figure(motifs,fastas, file_name):
                 color1= motif_dict[motif][2][0]
                 color2= motif_dict[motif][2][1]
                 color3= motif_dict[motif][2][2]
-                context.rectangle(integers[1],ii, (integers[0]-integers[1]), 20)    #(x0,y0,x1,y1)
+                context.rectangle(integers[1]+1,ii, ((integers[0]+1)-(integers[1]+1)), 20)    #(x0,y0,x1,y1)
                 context.set_source_rgb(color1,color2,color3)
                 context.fill()
         ii+= 75
@@ -186,14 +186,16 @@ class Fasta:
         exons = dict()
         ii = 0
         iii = 0
-        for i in range(0,len(fasta)):
+        for i in range(0,(len(fasta))):
             if fasta[i].isupper()== True:
                 iii = 0
                 if i-ii not in the_start:
                     the_start.append(i)
                 ii +=1
+                if i == len(fasta)-1:
+                    the_end.append(i)
             if the_start != []:
-                if  fasta[i].isupper()== False:
+                if fasta[i].isupper()== False:
                     if i - iii not in the_end:
                         the_end.append(i)
                         ii = 0
