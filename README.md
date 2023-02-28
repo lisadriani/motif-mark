@@ -1,6 +1,12 @@
 # motif-mark
 
-This code will take a text file with up to five Motifs (degenerate OK), and a fasta file (where exons are uppercase, introns are lowercase) of the genes of interest up to 1000nt in length. 
+This code will take a: 
+* text file with up to five Motifs (degenerate OK)
+* fasta file 
+    * exons uppercase, introns lowercase
+    * genes of interest up to 1000nt in length 
+
+ 
 The output will be a .png that takes the name of fasta file given to it (if "Figure_1.fasta" is given, "Figure_1.png" will be the output). 
 The image is to scale with introns, exons, and motifs, with label of fasta headers and color-to-motif legend. 
 
