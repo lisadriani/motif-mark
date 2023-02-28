@@ -149,13 +149,14 @@ class Motif:
     def find_motif(self, fasta): 
         '''fasta is the gene sequence, returns dictionary of the regex used: end, start, color'''
         regex = self.ambiguous_motif #get the regex to look for all the options in case of degenerate bases
+        #print(regex)
         color = self.color #get the color since they're shared across the degenerate options
         motif_dict = dict()
         match = str()
         for match in re.finditer(rf"{regex}", str(fasta)): 
             if match != None:
                 motif_dict[match.group()]=(match.end(),match.start(), color)
-
+                #print(match.start(),match.end())
         return  motif_dict
 
 
@@ -165,7 +166,7 @@ class Motif:
         uppercase = self.motif.upper()
         finder = str()
         for letter in uppercase:
-            finder+= ambiguous_bases[letter] 
+            finder += ambiguous_bases[letter] 
         return finder
 
 class Fasta: 
@@ -237,13 +238,6 @@ def classify(oneline,motif_file):
 oneline = oneline_fasta(fasta_file, file_name) #makes the oneline file
 fastas,motifs = classify(oneline,args.motifs) #returns a list of classes.
 draw_figure(motifs,fastas,file_name) # draws the figure
-
-
-
-
-
-
-
 
 
 
