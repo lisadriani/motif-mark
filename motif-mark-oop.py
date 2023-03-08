@@ -79,6 +79,7 @@ def draw_figure(motifs,fastas, file_name):
         for motifseq in motifs: ## loop through the motifs from the text file
             ##motif_dict[seq]:(start,end,color)
             motif_dict = motifseq.find_motif(fastaseq.fasta)
+            #print(motif_dict)
             for motif,integers in motif_dict.items():
                 color1= motif_dict[motif][2][0]
                 color2= motif_dict[motif][2][1]
@@ -149,14 +150,14 @@ class Motif:
     def find_motif(self, fasta): 
         '''fasta is the gene sequence, returns dictionary of the regex used: end, start, color'''
         regex = self.ambiguous_motif #get the regex to look for all the options in case of degenerate bases
-        #print(regex)
         color = self.color #get the color since they're shared across the degenerate options
         motif_dict = dict()
         match = str()
-        for match in re.finditer(rf"{regex}", str(fasta)): 
-            if match != None:
-                motif_dict[match.group()]=(match.end(),match.start(), color)
-                #print(match.start(),match.end())
+        w = 0
+        for overlapping in re.findall(f'(?=({regex}))', str(fasta)):
+            for match in re.finditer(f"{overlapping}", str(fasta)):
+                motif_dict[(match.group(),w)]=(match.end(),match.start(), color)
+                w +=1
         return  motif_dict
 
 
@@ -238,8 +239,6 @@ def classify(oneline,motif_file):
 oneline = oneline_fasta(fasta_file, file_name) #makes the oneline file
 fastas,motifs = classify(oneline,args.motifs) #returns a list of classes.
 draw_figure(motifs,fastas,file_name) # draws the figure
-
-
 
 
 
